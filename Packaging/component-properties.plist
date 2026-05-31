@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+  <dict>
+    <key>RootRelativeBundlePath</key>
+    <string>Library/Filesystems/ntfsaccess.fs</string>
+    <key>BundleIsVersionChecked</key>
+    <false/>
+    <key>BundleOverwriteAction</key>
+    <string>upgrade</string>
+  </dict>
+  <dict>
+    <key>RootRelativeBundlePath</key>
+    <string>Applications/NTFS Access.app</string>
+    <key>BundleIsRelocatable</key>
+    <false/>
+    <key>BundleHasStrictIdentifier</key>
+    <true/>
+    <key>BundleIsVersionChecked</key>
+    <false/>
+    <key>BundleOverwriteAction</key>
+    <string>upgrade</string>
+  </dict>
+</array>
+</plist>

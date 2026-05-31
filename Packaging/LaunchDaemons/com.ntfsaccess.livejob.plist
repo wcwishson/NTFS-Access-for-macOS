@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.ntfsaccess.livejob</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/Library/Application Support/NTFSAccess/live_job_runner.sh</string>
+      <string>/Users/Shared/NTFSAccessLiveBatch/requests/live-job.conf</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>NTFSACCESS_FORCE_SKIP_INSTALL</key>
+      <string>1</string>
+      <key>NTFSACCESS_REQUIRE_LIVEJOB_TRIGGER</key>
+      <string>1</string>
+    </dict>
+    <key>WatchPaths</key>
+    <array>
+      <string>/Users/Shared/NTFSAccessLiveBatch/requests/live-job.trigger</string>
+    </array>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+    <key>StandardOutPath</key>
+    <string>/var/log/ntfsaccess-livejob.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/ntfsaccess-livejob.log</string>
+  </dict>
+</plist>

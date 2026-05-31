@@ -1,0 +1,149 @@
+#!/bin/bash
+set -euo pipefail
+
+bundle_dir="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: ntfsaccess.util action_arg device_arg [mount_point_arg]
+action_arg:
+       -p (Probe for mounting)
+       -m (Mount)
+       -u (Unmount)
+       -y (Repair volume)
+       -q (Quick verify volume)
+       -v (Verify volume)
+       -f (Format volume)
+EOF
+}
+
+resolve_tool() {
+  local binary="$1"
+  local candidate=""
+  local candidates=(
+    "/Applications/NTFS Access.app/Contents/Library/NTFSAccess/toolchain/bin/$binary" \
+    "/Applications/NTFS Access.app/Contents/Library/NTFSAccess/toolchain/sbin/$binary" \
+    "/Library/NTFSAccess/toolchain/bin/$binary" \
+    "/Library/NTFSAccess/toolchain/sbin/$binary"
+  )
+
+  if [[ "${NTFSACCESS_ALLOW_UNSAFE_TOOLCHAIN_LOOKUP:-0}" == "1" ]]; then
+    if [[ -n "${NTFSACCESS_TOOLCHAIN_BIN:-}" ]]; then
+      candidates+=("${NTFSACCESS_TOOLCHAIN_BIN%/}/$binary")
+    fi
+    if [[ -n "${NTFSACCESS_TOOLCHAIN_ROOT:-}" ]]; then
+      candidates+=("${NTFSACCESS_TOOLCHAIN_ROOT%/}/bin/$binary" "${NTFSACCESS_TOOLCHAIN_ROOT%/}/sbin/$binary")
+    fi
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    if trusted_executable "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if [[ "${NTFSACCESS_ALLOW_UNSAFE_TOOLCHAIN_LOOKUP:-0}" == "1" ]] && candidate="$(command -v "$binary" 2>/dev/null)" && [[ -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
+trusted_executable() {
+  local path="$1"
+  local current=""
+  local owner=""
+  local mode=""
+  [[ -x "$path" && ! -L "$path" && -f "$path" ]] || return 1
+  owner="$(/usr/bin/stat -f '%u' "$path" 2>/dev/null || true)"
+  mode="$(/usr/bin/stat -f '%Lp' "$path" 2>/dev/null || true)"
+  [[ "$owner" == "0" && "$mode" =~ ^[0-7]+$ ]] || return 1
+  (( (8#$mode & 0022) == 0 )) || return 1
+
+  current="$(/usr/bin/dirname "$path")"
+  while [[ -n "$current" && "$current" != "/" ]]; do
+    [[ ! -L "$current" && -d "$current" ]] || return 1
+    owner="$(/usr/bin/stat -f '%u' "$current" 2>/dev/null || true)"
+    mode="$(/usr/bin/stat -f '%Lp' "$current" 2>/dev/null || true)"
+    [[ "$owner" == "0" && "$mode" =~ ^[0-7]+$ ]] || return 1
+    (( (8#$mode & 0022) == 0 )) || return 1
+    current="$(/usr/bin/dirname "$current")"
+  done
+}
+
+normalize_device() {
+  local value="$1"
+  if [[ "$value" == /dev/* ]]; then
+    printf '%s\n' "$value"
+  else
+    printf '/dev/%s\n' "$value"
+  fi
+}
+
+strip_device_prefix() {
+  local value="$1"
+  if [[ "$value" == /dev/* ]]; then
+    printf '%s\n' "${value#/dev/}"
+  else
+    printf '%s\n' "$value"
+  fi
+}
+
+if [[ $# -lt 2 ]]; then
+  usage
+  exit 64
+fi
+
+action="$1"
+device_arg="$2"
+device="$(normalize_device "$device_arg")"
+mountpoint="${3:-}"
+
+case "$action" in
+  -p)
+    apple_probe="$(resolve_tool ntfs.util || true)"
+    if [[ -z "${apple_probe:-}" ]]; then
+      echo "Apple ntfs.util not found" >&2
+      exit 72
+    fi
+    shift 2
+    probe_device="$(strip_device_prefix "$device_arg")"
+    exec "$apple_probe" -p "$probe_device" "$@"
+    ;;
+  -m)
+    shift 2
+    exec "$bundle_dir/mount_ntfsaccess" "$device" "$@"
+    ;;
+  -u)
+    if [[ -z "$mountpoint" ]]; then
+      echo "Unmount requires a mount point" >&2
+      exit 64
+    fi
+    exec /sbin/umount "$mountpoint"
+    ;;
+  -y)
+    ntfsfix="$(resolve_tool ntfsfix || true)"
+    if [[ -z "${ntfsfix:-}" ]]; then
+      echo "ntfsfix not found" >&2
+      exit 72
+    fi
+    exec "$ntfsfix" "$device"
+    ;;
+  -q|-v)
+    ntfsfix="$(resolve_tool ntfsfix || true)"
+    if [[ -z "${ntfsfix:-}" ]]; then
+      echo "ntfsfix not found" >&2
+      exit 72
+    fi
+    exec "$ntfsfix" -n "$device"
+    ;;
+  -f)
+    exec "$bundle_dir/newfs_ntfsaccess" "$device"
+    ;;
+  *)
+    usage
+    exit 64
+    ;;
+esac

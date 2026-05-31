@@ -1,0 +1,8 @@
+.build/
+.swiftpm/
+dist/
+.DS_Store
+IMPLEMENTATION_LOG.md
+MANUAL_VALIDATION.md
+PLAN.md
+docs/superpowers/plans/

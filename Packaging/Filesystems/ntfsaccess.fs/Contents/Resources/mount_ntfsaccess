@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_HELPER="/Applications/NTFS Access.app/Contents/MacOS/NTFSMenuApp"
+
+if [[ ! -x "$APP_HELPER" ]]; then
+  echo "NTFS Access mount wrapper: installed app helper is missing: $APP_HELPER" >&2
+  exit 72
+fi
+
+exec "$APP_HELPER" --mount-helper "$@"

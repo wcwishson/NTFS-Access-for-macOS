@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>English</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.ntfsaccess.filesystems.ntfsaccess</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>ntfsaccess</string>
+  <key>CFBundlePackageType</key>
+  <string>fs  </string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0.0</string>
+  <key>CFBundleVersion</key>
+  <string>1.0.0</string>
+  <key>FSMediaTypes</key>
+  <dict>
+		<key>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</key>
+		<dict>
+      <key>FSMediaProperties</key>
+      <dict>
+        <key>Content Hint</key>
+        <string>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</string>
+        <key>Leaf</key>
+        <true/>
+      </dict>
+      <key>FSProbeArguments</key>
+      <string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>ntfsaccess.util</string>
+			<key>FSProbeOrder</key>
+			<integer>500</integer>
+		</dict>
+    <key>Partitionless</key>
+    <dict>
+      <key>FSMediaProperties</key>
+      <dict>
+        <key>Leaf</key>
+        <true/>
+        <key>Whole</key>
+        <true/>
+      </dict>
+      <key>FSProbeArguments</key>
+      <string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>ntfsaccess.util</string>
+			<key>FSProbeOrder</key>
+			<integer>3500</integer>
+		</dict>
+    <key>Windows_NTFS</key>
+    <dict>
+      <key>FSMediaProperties</key>
+      <dict>
+        <key>Content Hint</key>
+        <string>Windows_NTFS</string>
+        <key>Leaf</key>
+        <true/>
+      </dict>
+      <key>FSProbeArguments</key>
+      <string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>ntfsaccess.util</string>
+			<key>FSProbeOrder</key>
+			<integer>500</integer>
+		</dict>
+  </dict>
+  <key>FSPersonalities</key>
+  <dict>
+    <key>NTFS Access</key>
+    <dict>
+      <key>FSFormatArguments</key>
+      <string></string>
+      <key>FSFormatContentMask</key>
+      <string>Windows_NTFS</string>
+      <key>FSFormatExecutable</key>
+      <string>newfs_ntfsaccess</string>
+      <key>FSFormatMaximumSize</key>
+      <integer>17592186040320</integer>
+      <key>FSFormatMinimumSize</key>
+      <integer>34603008</integer>
+      <key>FSMountArguments</key>
+      <string></string>
+      <key>FSMountExecutable</key>
+      <string>mount_ntfsaccess</string>
+      <key>FSName</key>
+      <string>Windows NT File System (NTFS Access)</string>
+      <key>FSRepairArguments</key>
+      <string>-y</string>
+      <key>FSRepairExecutable</key>
+      <string>ntfsaccess.util</string>
+      <key>FSSubType</key>
+      <integer>0</integer>
+      <key>FSVerificationArguments</key>
+      <string>-v</string>
+      <key>FSVerificationExecutable</key>
+      <string>ntfsaccess.util</string>
+    </dict>
+  </dict>
+</dict>
+</plist>

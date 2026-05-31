@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.ntfsaccess.mountd</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/Applications/NTFS Access.app/Contents/MacOS/NTFSMenuApp</string>
+      <string>--mountd</string>
+    </array>
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+      <string>com.ntfsaccess.menu</string>
+    </array>
+    <key>MachServices</key>
+    <dict>
+      <key>com.ntfsaccess.mountd</key>
+      <true/>
+    </dict>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/ntfsaccess.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/ntfsaccess.log</string>
+  </dict>
+</plist>

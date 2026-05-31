@@ -1,0 +1,89 @@
+#!/bin/bash
+set -euo pipefail
+
+TARGET_ROOT="${3:-/}"
+if [ -z "$TARGET_ROOT" ]; then
+  TARGET_ROOT="/"
+fi
+
+target_path() {
+  local path="$1"
+  if [ "$TARGET_ROOT" = "/" ]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s%s\n' "${TARGET_ROOT%/}" "$path"
+  fi
+}
+
+stop_existing_menu_app() {
+  local menu_binary="/Applications/NTFS Access.app/Contents/MacOS/NTFSMenuApp"
+  local pid=""
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    /bin/kill "$pid" >/dev/null 2>&1 || true
+  done < <(/usr/bin/pgrep -f "$menu_binary" 2>/dev/null || true)
+}
+
+have_macfuse=0
+
+trusted_executable() {
+  local path="$1"
+  local current=""
+  local owner=""
+  local mode=""
+  [ -x "$path" ] && [ ! -L "$path" ] && [ -f "$path" ] || return 1
+  owner="$(/usr/bin/stat -f '%u' "$path" 2>/dev/null || true)"
+  mode="$(/usr/bin/stat -f '%Lp' "$path" 2>/dev/null || true)"
+  [ "$owner" = "0" ] && [[ "$mode" =~ ^[0-7]+$ ]] || return 1
+  (( (8#$mode & 0022) == 0 )) || return 1
+
+  current="$(/usr/bin/dirname "$path")"
+  while [ -n "$current" ] && [ "$current" != "/" ]; do
+    [ ! -L "$current" ] && [ -d "$current" ] || return 1
+    owner="$(/usr/bin/stat -f '%u' "$current" 2>/dev/null || true)"
+    mode="$(/usr/bin/stat -f '%Lp' "$current" 2>/dev/null || true)"
+    [ "$owner" = "0" ] && [[ "$mode" =~ ^[0-7]+$ ]] || return 1
+    (( (8#$mode & 0022) == 0 )) || return 1
+    current="$(/usr/bin/dirname "$current")"
+  done
+}
+
+if [ "$TARGET_ROOT" = "/" ]; then
+  stop_existing_menu_app
+
+  if trusted_executable /Library/Filesystems/macfuse.fs/Contents/Resources/mount_macfuse; then
+    have_macfuse=1
+  fi
+
+  if [ "$have_macfuse" -eq 0 ]; then
+    echo "NTFS Access prerequisites missing:"
+    echo "- macFUSE missing or not installed at a trusted root-owned path"
+    echo "This package installs the managed NTFS toolchain, but macFUSE must already be installed because it is a kernel/system extension dependency."
+
+    if [ "${ALLOW_LIMITED_INSTALL:-0}" != "1" ]; then
+      echo "Blocking install. Set ALLOW_LIMITED_INSTALL=1 to proceed in limited mode."
+      exit 1
+    fi
+
+    echo "Proceeding in limited mode due ALLOW_LIMITED_INSTALL=1"
+  else
+    echo "This package installs the managed NTFS toolchain; preinstall only verifies macFUSE before payload install."
+  fi
+else
+  echo "Skipping live prerequisite enforcement for alternate install target: $TARGET_ROOT"
+fi
+
+filesystem_root="$(target_path "/Library/Filesystems")"
+for bundle in "$filesystem_root"/*.fs; do
+  [ -e "$bundle" ] || continue
+  if [ "$(basename "$bundle")" = "ntfsaccess.fs" ]; then
+    continue
+  fi
+
+  plist="$bundle/Contents/Info.plist"
+  if [ -f "$plist" ] && /usr/bin/plutil -p "$plist" 2>/dev/null | /usr/bin/grep -qi 'NTFS'; then
+    echo "Warning: detected another NTFS filesystem bundle: $(basename "$bundle")"
+  fi
+done
+
+exit 0
