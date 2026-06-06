@@ -90,13 +90,6 @@ The installer is written to:
 dist/NTFSAccess-installer.pkg
 ```
 
-## Verify A Local Build
-
-```bash
-swift test
-./scripts/verify_install.sh
-```
-
 ## Uninstall
 
 ```bash
