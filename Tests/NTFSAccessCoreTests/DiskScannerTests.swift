@@ -2,6 +2,22 @@
 import XCTest
 
 final class DiskScannerTests: XCTestCase {
+    func testInfoThrowsDiskutilErrorMessageInsteadOfParsingMissingDiskAsVolume() {
+        let scanner = DiskScanner { arguments, _, _ in
+            XCTAssertEqual(arguments, ["info", "-plist", "/dev/disk12s2"])
+            return [
+                "Error": true,
+                "ErrorMessage": "Could not find disk: /dev/disk12s2",
+                "ExitCode": 1
+            ]
+        }
+
+        XCTAssertThrowsError(try scanner.info(for: "disk12s2")) { error in
+            XCTAssertEqual(error.localizedDescription, "Could not find disk: /dev/disk12s2")
+            XCTAssertTrue(scanner.deviceNoLongerPresent(error))
+        }
+    }
+
     func testParseDiskVolumeRecognizesNTFS() {
         let scanner = DiskScanner()
         let plist: [String: Any] = [

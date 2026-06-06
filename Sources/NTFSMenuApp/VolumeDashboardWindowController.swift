@@ -21,13 +21,14 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
         self.viewModel = viewModel
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: DashboardLayout.windowWidth, height: DashboardLayout.windowHeight),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "NTFS Drives"
-        window.minSize = NSSize(width: 520, height: 300)
+        window.minSize = NSSize(width: DashboardLayout.windowMinWidth, height: DashboardLayout.windowMinHeight)
+        window.maxSize = NSSize(width: DashboardLayout.windowMaxWidth, height: DashboardLayout.windowMaxHeight)
 
         super.init(window: window)
         window.delegate = self
@@ -86,7 +87,11 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
 
         serviceLabel.textColor = .secondaryLabelColor
         serviceLabel.lineBreakMode = .byTruncatingTail
+        serviceLabel.maximumNumberOfLines = 1
+        serviceLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        serviceLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         updatedLabel.textColor = .tertiaryLabelColor
+        updatedLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.alignment = .center
 
@@ -126,6 +131,7 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
             root.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             root.topAnchor.constraint(equalTo: contentView.topAnchor),
             root.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            contentView.widthAnchor.constraint(lessThanOrEqualToConstant: DashboardLayout.windowMaxWidth),
             header.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -32),
             statusLine.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -32),
             scrollView.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -32),
@@ -234,7 +240,20 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
             return "Service: \(snapshot.serviceHealth.rawValue)"
         }
 
-        return "Service: \(snapshot.serviceHealth.rawValue) - \(snapshot.serviceMessage)"
+        return "Service: \(snapshot.serviceHealth.rawValue) - \(Self.compactMessage(snapshot.serviceMessage))"
+    }
+
+    private static func compactMessage(_ message: String) -> String {
+        let singleLine = message
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard singleLine.count > DashboardLayout.compactMessageLimit else {
+            return singleLine
+        }
+
+        let endIndex = singleLine.index(singleLine.startIndex, offsetBy: DashboardLayout.compactMessageLimit)
+        return "\(singleLine[..<endIndex])..."
     }
 
     @objc private func handleRescan() {
@@ -338,10 +357,14 @@ private final class DriveGroupView: NSView {
         let title = NSTextField(labelWithString: group.title)
         title.font = .systemFont(ofSize: 15, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
+        title.maximumNumberOfLines = 1
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let subtitle = NSTextField(labelWithString: group.subtitle)
         subtitle.textColor = .secondaryLabelColor
         subtitle.lineBreakMode = .byTruncatingTail
+        subtitle.maximumNumberOfLines = 1
+        subtitle.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         let header = NSStackView(views: [title, NSView(), subtitle])
         header.orientation = .horizontal
@@ -399,14 +422,20 @@ private final class VolumeStatusRowView: NSView {
         let title = NSTextField(labelWithString: row.displayName)
         title.font = .systemFont(ofSize: 14, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
+        title.maximumNumberOfLines = 1
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let detail = NSTextField(labelWithString: row.modeLabel)
         detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingTail
+        detail.maximumNumberOfLines = 1
+        detail.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let reason = NSTextField(labelWithString: row.reasonLabel)
+        let reason = NSTextField(labelWithString: Self.compactReason(row.reasonLabel))
         reason.textColor = .tertiaryLabelColor
         reason.lineBreakMode = .byTruncatingTail
+        reason.maximumNumberOfLines = 1
+        reason.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let textStack = NSStackView(views: row.reasonLabel.isEmpty ? [title, detail] : [title, detail, reason])
         textStack.orientation = .vertical
@@ -484,7 +513,29 @@ private final class VolumeRowButton: NSButton {
     }
 }
 
+private extension VolumeStatusRowView {
+    static func compactReason(_ reason: String) -> String {
+        let singleLine = reason
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard singleLine.count > DashboardLayout.compactMessageLimit else {
+            return singleLine
+        }
+
+        let endIndex = singleLine.index(singleLine.startIndex, offsetBy: DashboardLayout.compactMessageLimit)
+        return "\(singleLine[..<endIndex])..."
+    }
+}
+
 private enum DashboardLayout {
+    static let windowWidth: CGFloat = 720
+    static let windowHeight: CGFloat = 460
+    static let windowMinWidth: CGFloat = 600
+    static let windowMinHeight: CGFloat = 340
+    static let windowMaxWidth: CGFloat = 900
+    static let windowMaxHeight: CGFloat = 680
+    static let compactMessageLimit = 140
     static let groupVerticalPadding: CGFloat = 20
     static let groupHeaderHeight: CGFloat = 20
     static let groupHeaderRowSpacing: CGFloat = 8

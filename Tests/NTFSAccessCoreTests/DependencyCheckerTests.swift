@@ -124,6 +124,28 @@ final class DependencyCheckerTests: XCTestCase {
         })
     }
 
+    func testAdHocInstalledAppWarnsThatFullDiskAccessMayNeedFreshApproval() {
+        let report = dependencyReport(installedAppSignatureProvider: { "adhoc" })
+
+        XCTAssertTrue(report.advisoryNotes.contains { note in
+            note.localizedCaseInsensitiveContains("ad-hoc signed")
+                && note.localizedCaseInsensitiveContains("removing and re-adding")
+                && note.localizedCaseInsensitiveContains("/Applications/NTFS Access.app")
+        })
+    }
+
+    func testStableLocalSigningIdentityExplainsFullDiskAccessShouldStickAfterFreshApproval() {
+        let report = dependencyReport(installedAppSignatureProvider: { "Authority=NTFS Access Local Signing" })
+
+        XCTAssertTrue(report.advisoryNotes.contains { note in
+            note.localizedCaseInsensitiveContains("stable local signing identity")
+                && note.localizedCaseInsensitiveContains("survive rebuilds")
+        })
+        XCTAssertFalse(report.advisoryNotes.contains { note in
+            note.localizedCaseInsensitiveContains("ad-hoc signed")
+        })
+    }
+
     func testFormatterProbeOrdersExposeInstalledFilesystemBundlePriority() throws {
         let probeOrders = FileSystemPersonalityInspector.formatterProbeOrders(
             infoPlistPath: repositoryRoot()
@@ -172,7 +194,8 @@ final class DependencyCheckerTests: XCTestCase {
                 return nil
             }
         },
-        toolDiagnosticsResolver: @escaping (String, Bool, [String]) -> [String] = { _, _, _ in [] }
+        toolDiagnosticsResolver: @escaping (String, Bool, [String]) -> [String] = { _, _, _ in [] },
+        installedAppSignatureProvider: @escaping () -> String = { "signed" }
     ) -> DependencyReport {
         DependencyChecker.run(
             requireRoot: requireRoot,
@@ -184,7 +207,7 @@ final class DependencyCheckerTests: XCTestCase {
             formatterPersonalityRegisteredProvider: { true },
             formatterProbeOrdersProvider: { ["Windows_NTFS": 500] },
             detectedNTFSPersonalitiesProvider: { [NTFSAccessPaths.formatterPersonalityName] },
-            installedAppSignatureProvider: { "signed" },
+            installedAppSignatureProvider: installedAppSignatureProvider,
             runningMountDaemonProgramProvider: { nil },
             installedMountWrapperUsesAppHelperProvider: { true }
         )

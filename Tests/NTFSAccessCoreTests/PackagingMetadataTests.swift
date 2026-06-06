@@ -141,18 +141,23 @@ final class PackagingMetadataTests: XCTestCase {
         XCTAssertTrue(script.contains("\"$ROOT_DIR/.build/release/ntfsaccessctl\" \"$MACOS_DIR/ntfsaccessctl\""))
         XCTAssertTrue(script.contains("\"$ROOT_DIR/.build/release/newfs_ntfsaccess\" \"$MACOS_DIR/newfs_ntfsaccess\""))
         XCTAssertTrue(script.contains("chmod 755 \"$MACOS_DIR/ntfsaccessctl\" \"$MACOS_DIR/newfs_ntfsaccess\""))
-        XCTAssertTrue(script.contains("/usr/bin/codesign --force --sign - \"$MACOS_DIR/ntfsaccessctl\""))
-        XCTAssertTrue(script.contains("/usr/bin/codesign --force --sign - \"$MACOS_DIR/newfs_ntfsaccess\""))
+        XCTAssertTrue(script.contains("codesign_file \"$MACOS_DIR/ntfsaccessctl\""))
+        XCTAssertTrue(script.contains("codesign_file \"$MACOS_DIR/newfs_ntfsaccess\""))
     }
 
-    func testPackageAppScriptAdHocSignsInstallableBundles() throws {
+    func testPackageAppScriptPrefersStableLocalSigningIdentityWhenAvailable() throws {
         let script = try String(contentsOf: repositoryRoot().appendingPathComponent("scripts/package_app.sh"), encoding: .utf8)
 
-        XCTAssertTrue(script.contains("/usr/bin/codesign --force --sign - \"$TOOLCHAIN_LIB_DIR/libntfs-3g.89.dylib\""))
-        XCTAssertTrue(script.contains("/usr/bin/codesign --force --sign - \"$TOOLCHAIN_BIN_DIR/$binary\""))
-        XCTAssertTrue(script.contains("/usr/bin/codesign --force --sign - \"$TOOLCHAIN_SBIN_DIR/$binary\""))
+        XCTAssertTrue(script.contains("LOCAL_CODESIGN_IDENTITY=\"${NTFSACCESS_LOCAL_CODESIGN_IDENTITY:-NTFS Access Local Signing}\""))
+        XCTAssertTrue(script.contains("NTFSACCESS_CODESIGN_IDENTITY"))
+        XCTAssertTrue(script.contains("security find-certificate -c \"$LOCAL_CODESIGN_IDENTITY\""))
+        XCTAssertTrue(script.contains("CODESIGN_IDENTITY=\"-\""))
+        XCTAssertTrue(script.contains("/usr/bin/codesign --force --sign \"$CODESIGN_IDENTITY\""))
+        XCTAssertTrue(script.contains("codesign_file \"$TOOLCHAIN_LIB_DIR/libntfs-3g.89.dylib\""))
+        XCTAssertTrue(script.contains("codesign_file \"$TOOLCHAIN_BIN_DIR/$binary\""))
+        XCTAssertTrue(script.contains("codesign_file \"$TOOLCHAIN_SBIN_DIR/$binary\""))
         XCTAssertFalse(script.contains("/usr/bin/codesign --force --sign - \"$HELPER_APP_DIR\""))
-        XCTAssertTrue(script.contains("/usr/bin/codesign --force --sign - \"$APP_DIR\""))
+        XCTAssertTrue(script.contains("codesign_file \"$APP_DIR\""))
         XCTAssertTrue(script.contains("/usr/bin/codesign --verify --deep --strict \"$APP_DIR\""))
     }
 
@@ -171,7 +176,7 @@ final class PackagingMetadataTests: XCTestCase {
     }
 
     func testPackageVersionMetadataIsConsistentForCurrentBuild() throws {
-        let expectedVersion = "1.0.0"
+        let expectedVersion = "1.0.1"
         let appPackageScript = try String(contentsOf: repositoryRoot().appendingPathComponent("scripts/package_app.sh"), encoding: .utf8)
         let packageScript = try String(contentsOf: repositoryRoot().appendingPathComponent("scripts/package_pkg.sh"), encoding: .utf8)
         let distribution = try String(contentsOf: repositoryRoot().appendingPathComponent("Packaging/distribution.xml"), encoding: .utf8)
@@ -1583,6 +1588,12 @@ final class PackagingMetadataTests: XCTestCase {
         XCTAssertTrue(dashboard.contains("Healthy"))
         XCTAssertFalse(dashboard.contains("NSProgressIndicator"))
         XCTAssertFalse(dashboard.contains("operationLabel"))
+        XCTAssertTrue(dashboard.contains("window.maxSize = NSSize(width: DashboardLayout.windowMaxWidth, height: DashboardLayout.windowMaxHeight)"))
+        XCTAssertTrue(dashboard.contains("static let windowWidth: CGFloat = 720"))
+        XCTAssertTrue(dashboard.contains("static let windowMaxWidth: CGFloat = 900"))
+        XCTAssertTrue(dashboard.contains("compactMessage"))
+        XCTAssertTrue(dashboard.contains("compactReason"))
+        XCTAssertTrue(dashboard.contains("maximumNumberOfLines = 1"))
         XCTAssertTrue(dashboard.contains("Rescan"))
         XCTAssertTrue(dashboard.contains("Open in Finder"))
         XCTAssertTrue(dashboard.contains("Eject"))
@@ -1603,8 +1614,8 @@ final class PackagingMetadataTests: XCTestCase {
         XCTAssertTrue(dashboard.contains("widthAnchor.constraint(equalToConstant: DashboardLayout.ejectButtonWidth)"))
         XCTAssertTrue(dashboard.contains("widthAnchor.constraint(equalToConstant: DashboardLayout.detailsButtonWidth)"))
         XCTAssertTrue(viewModel.contains("Full Disk Access"))
-        XCTAssertTrue(viewModel.contains("ad-hoc signed"))
-        XCTAssertTrue(viewModel.contains("new app"))
+        XCTAssertTrue(viewModel.contains("remove it from the list"))
+        XCTAssertTrue(viewModel.contains("new privacy identity"))
         XCTAssertTrue(viewModel.contains("macFUSE"))
         XCTAssertTrue(viewModel.contains("Windows cleanup"))
         XCTAssertTrue(viewModel.contains("repairVolume"))

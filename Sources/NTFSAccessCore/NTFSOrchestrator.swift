@@ -458,7 +458,12 @@ public final class NTFSOrchestrator {
                     Log.warning("Known NTFS volume \(stableIdentity) at \(identifier) is now \(filesystem); removing stale managed state")
                 }
             } catch {
-                unrecoveredStableIdentities.append(stableIdentity)
+                if scanner.deviceNoLongerPresent(error) {
+                    removedStableIdentities.append(stableIdentity)
+                    Log.warning("Known NTFS volume \(stableIdentity) at \(identifier) is no longer present; removing stale managed state")
+                } else {
+                    unrecoveredStableIdentities.append(stableIdentity)
+                }
             }
         }
         guard !recoveredVolumes.isEmpty || !removedStableIdentities.isEmpty else {
@@ -713,19 +718,6 @@ public final class NTFSOrchestrator {
             }
 
             if shouldAttemptNativeReadOnlyTakeover(for: volume, using: mounter) {
-                let canUseRegisteredPersonality = formatterPersonalityIsReady()
-                if !canUseRegisteredPersonality && !mounter.canReadRawDevice(volume.deviceNode) {
-                    nativeReadOnlyFallback.insert(volume.stableIdentity)
-                    deferNativeReadOnlyTakeover(volume.stableIdentity)
-                    clearBackoff(volume.stableIdentity)
-                    return ManagedVolumeState(
-                        volume: volume,
-                        mode: .readOnly,
-                        reason: "Native macOS read-only NTFS mount retained because raw disk access is not authorized. Grant Full Disk Access to NTFS Access.app, then reconnect the drive. If writable mounting later reaches ntfs-3g, macOS may ask for that tool separately.",
-                        lastTransitionAt: Date()
-                    )
-                }
-
                 return try takeOverNativeReadOnlyVolume(
                     volume: volume,
                     consoleUser: consoleUser,
@@ -892,7 +884,22 @@ public final class NTFSOrchestrator {
         consoleUser: ConsoleUser,
         using mounter: VolumeMounting
     ) throws -> ManagedVolumeState {
-        guard mounter.canReadRawDevice(volume.deviceNode) else {
+        let probeResult = probe.checkWriteSafety(deviceNode: volume.deviceNode)
+        guard probeResult.safeForWrite
+            || isRawDiskAccessDeniedMessage(probeResult.reason)
+            || isTransientRawDeviceBusyMessage(probeResult.reason) else {
+            nativeReadOnlyFallback.insert(volume.stableIdentity)
+            clearBackoff(volume.stableIdentity)
+            return ManagedVolumeState(
+                volume: volume,
+                mode: .readOnly,
+                reason: probeResult.reason,
+                lastTransitionAt: Date()
+            )
+        }
+
+        let canUseRegisteredPersonality = formatterPersonalityIsReady()
+        guard canUseRegisteredPersonality || mounter.canReadRawDevice(volume.deviceNode) else {
             return rawAccessDeniedNativeReadOnlyState(for: volume)
         }
 
@@ -910,10 +917,11 @@ public final class NTFSOrchestrator {
         }
 
         let unmounted = unmountedStateAfterTakeoverUnmount(for: volume)
-        let probeResult = probe.checkWriteSafety(deviceNode: unmounted.deviceNode)
 
         guard probeResult.safeForWrite else {
-            if isRawDiskAccessDeniedMessage(probeResult.reason), formatterPersonalityIsReady() {
+            let bypassableProbeFailure = isRawDiskAccessDeniedMessage(probeResult.reason)
+                || isTransientRawDeviceBusyMessage(probeResult.reason)
+            if bypassableProbeFailure, formatterPersonalityIsReady() {
                 do {
                     try mountWritablePreferredPath(volume: unmounted, user: consoleUser, using: mounter)
                     let refreshed = refreshedStateAfterMount(
@@ -954,7 +962,7 @@ public final class NTFSOrchestrator {
             return ManagedVolumeState(
                 volume: refreshed,
                 mode: .readOnly,
-                reason: probeResult.reason,
+                reason: "Native macOS read-only mount retained because writable NTFS takeover was blocked by macOS raw disk access policy: \(probeResult.reason)",
                 lastTransitionAt: Date()
             )
         }
@@ -1041,7 +1049,7 @@ public final class NTFSOrchestrator {
         return ManagedVolumeState(
             volume: volume,
             mode: .readOnly,
-            reason: "Native macOS read-only mount retained because raw disk access is not authorized. Grant Full Disk Access to NTFS Access.app, then retry.",
+            reason: "Native macOS read-only mount retained because raw disk access is not authorized. If NTFS Access.app is already enabled in Full Disk Access, remove it, add /Applications/NTFS Access.app again, then retry.",
             lastTransitionAt: Date()
         )
     }
@@ -1401,6 +1409,14 @@ public final class NTFSOrchestrator {
             return now() >= nextAttempt
         }
 
+        if formatterPersonalityIsReady() {
+            if let nextAttempt = nextNativeReadOnlyTakeoverAttemptAt[volume.stableIdentity],
+               now() < nextAttempt {
+                return false
+            }
+            return true
+        }
+
         if shouldCheckRawAccessReadiness(for: volume.stableIdentity) {
             if mounter.canReadRawDevice(volume.deviceNode) {
                 clearNativeReadOnlyRetryDelay(volume.stableIdentity)
@@ -1494,6 +1510,13 @@ public final class NTFSOrchestrator {
             || lowercased.contains("denied raw disk access")
             || lowercased.contains("raw disk access")
         return mentionsDisk && denied
+    }
+
+    private func isTransientRawDeviceBusyMessage(_ message: String) -> Bool {
+        let lowercased = message.lowercased()
+        let mentionsDisk = lowercased.contains("/dev/disk") || lowercased.contains("/dev/rdisk")
+        let busy = lowercased.contains("resource busy") || lowercased.contains("device busy")
+        return mentionsDisk && busy
     }
 
     private func isDiskArbitrationTimeout(_ error: Error) -> Bool {

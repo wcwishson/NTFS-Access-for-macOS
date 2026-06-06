@@ -182,7 +182,9 @@ public enum DependencyChecker {
         }
 
         if appSignature.localizedCaseInsensitiveContains("adhoc") {
-            advisoryNotes.append("Installed NTFS Access.app is ad-hoc signed. macOS may treat each rebuilt installer as a new privacy identity, so Full Disk Access can need a fresh off/on toggle after reinstalling.")
+            advisoryNotes.append("Installed NTFS Access.app is ad-hoc signed. macOS may treat each rebuilt installer as a new privacy identity, so Full Disk Access can require removing and re-adding /Applications/NTFS Access.app after reinstalling.")
+        } else if appSignature.localizedCaseInsensitiveContains("NTFS Access Local Signing") {
+            advisoryNotes.append("Installed NTFS Access.app uses the stable local signing identity. Full Disk Access should survive rebuilds after one fresh approval of this identity.")
         }
 
         if formatterBundleInstalled && !mountWrapperUsesAppHelper {
@@ -500,6 +502,12 @@ public enum DependencyChecker {
         let output = result.stderrTrimmed.isEmpty ? result.stdoutTrimmed : result.stderrTrimmed
         if output.localizedCaseInsensitiveContains("Signature=adhoc") {
             return "adhoc"
+        }
+        if let authorityLine = output
+            .split(separator: "\n")
+            .map(String.init)
+            .first(where: { $0.hasPrefix("Authority=") }) {
+            return authorityLine
         }
         if let teamLine = output
             .split(separator: "\n")

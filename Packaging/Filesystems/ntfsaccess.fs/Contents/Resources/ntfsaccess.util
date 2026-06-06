@@ -24,7 +24,8 @@ resolve_tool() {
     "/Applications/NTFS Access.app/Contents/Library/NTFSAccess/toolchain/bin/$binary" \
     "/Applications/NTFS Access.app/Contents/Library/NTFSAccess/toolchain/sbin/$binary" \
     "/Library/NTFSAccess/toolchain/bin/$binary" \
-    "/Library/NTFSAccess/toolchain/sbin/$binary"
+    "/Library/NTFSAccess/toolchain/sbin/$binary" \
+    "/System/Library/Filesystems/ntfs.fs/Contents/Resources/$binary"
   )
 
   if [[ "${NTFSACCESS_ALLOW_UNSAFE_TOOLCHAIN_LOOKUP:-0}" == "1" ]]; then

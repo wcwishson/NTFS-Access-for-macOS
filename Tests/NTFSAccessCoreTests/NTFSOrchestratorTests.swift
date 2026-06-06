@@ -91,6 +91,23 @@ final class NTFSOrchestratorTests: XCTestCase {
         XCTAssertTrue(dto.isActionable)
     }
 
+    func testVolumeDTOMapsRawDeniedNativeReadOnlyFallbackToRetryWritableTakeover() {
+        let dto = ManagedVolumeState(
+            deviceIdentifier: "disk4s1",
+            volumeName: "Passport",
+            mountPoint: "/Volumes/Passport",
+            isExternal: true,
+            mode: .readOnly,
+            reason: "Native macOS read-only mount retained because raw disk access is not authorized. Grant Full Disk Access to NTFS Access.app, then retry.",
+            lastTransitionAt: Date(timeIntervalSince1970: 1_004)
+        ).toDTO()
+
+        XCTAssertEqual(dto.presentationState, .nativeReadOnly)
+        XCTAssertEqual(dto.statusColor, .yellow)
+        XCTAssertEqual(dto.primaryAction, .retryWritableTakeover)
+        XCTAssertTrue(dto.isActionable)
+    }
+
     func testVolumeDTOMapsUnsafeNTFSToRedWindowsCleanupGuidanceState() {
         let dto = ManagedVolumeState(
             deviceIdentifier: "disk4s1",
@@ -155,7 +172,7 @@ final class NTFSOrchestratorTests: XCTestCase {
         XCTAssertFalse(scanning.isActionable)
     }
 
-    func testMountedNativeReadOnlySafeVolumeStopsBeforeTakeoverWhenRawDeviceAccessCheckIsDenied() {
+    func testMountedNativeReadOnlySafeVolumeUsesRegisteredFormatterWhenRawDeviceAccessCheckIsDenied() {
         let initialVolume = DiskVolume.testVolume(
             filesystemType: "ntfs",
             filesystemName: "Windows NT Filesystem",
@@ -178,12 +195,11 @@ final class NTFSOrchestratorTests: XCTestCase {
 
         let result = orchestrator.reconcile()
 
-        XCTAssertEqual(mounter.calls, [])
-        XCTAssertEqual(result.health, .degradedReadOnly)
-        XCTAssertEqual(result.volumes.first?.mode, .readOnly)
+        XCTAssertEqual(mounter.calls, ["unmount(disk4s1,true)", "mountUsingRegisteredPersonality(disk4s1,false)"])
+        XCTAssertEqual(result.health, .healthy)
+        XCTAssertEqual(result.volumes.first?.mode, .readWrite)
         XCTAssertEqual(result.volumes.first?.mountPoint, "/Volumes/Passport")
-        XCTAssertTrue(result.volumes.first?.reason.contains("raw disk access is not authorized") == true)
-        XCTAssertEqual(result.volumes.first?.toDTO().presentationState, .rawAccessDenied)
+        XCTAssertEqual(result.volumes.first?.toDTO().presentationState, .readWriteVerified)
     }
 
     func testNativeReadOnlyRawAccessDenialIsNotRetriedOnEveryScan() {
@@ -314,7 +330,7 @@ final class NTFSOrchestratorTests: XCTestCase {
             probe: probe,
             mounter: mounter,
             mountPointWriteProbe: Self.successfulWriteProbe,
-            dependencyCheck: Self.readyDependencies,
+            dependencyCheck: Self.dependenciesWithoutRegisteredFormatter,
             mountPathExists: { _ in true },
             managedMountPointIsActive: { _ in true },
             rawAccessReadinessCheckInterval: 0
@@ -325,7 +341,7 @@ final class NTFSOrchestratorTests: XCTestCase {
         let result = orchestrator.reconcile()
 
         XCTAssertEqual(mounter.rawReadCheckCount, 3)
-        XCTAssertEqual(mounter.calls, ["unmount(disk4s1,true)", "mountUsingRegisteredPersonality(disk4s1,false)"])
+        XCTAssertEqual(mounter.calls, ["unmount(disk4s1,true)", "mountReadWrite(disk4s1)"])
         XCTAssertEqual(result.health, .healthy)
         XCTAssertEqual(result.volumes.first?.mode, .readWrite)
     }
@@ -404,7 +420,7 @@ final class NTFSOrchestratorTests: XCTestCase {
         XCTAssertEqual(firstResult.health, .degradedReadOnly)
         XCTAssertEqual(firstResult.volumes.first?.mode, .readOnly)
         XCTAssertEqual(firstResult.volumes.first?.mountPoint, "/Volumes/Unsafe")
-        XCTAssertTrue(firstResult.volumes.first?.reason.contains("raw disk access is not authorized") == true)
+        XCTAssertTrue(firstResult.volumes.first?.reason.contains("dirty NTFS journal") == true)
         XCTAssertEqual(secondResult.health, .degradedReadOnly)
         XCTAssertEqual(secondResult.volumes.first?.mode, .readOnly)
     }
@@ -431,9 +447,10 @@ final class NTFSOrchestratorTests: XCTestCase {
         let firstResult = orchestrator.reconcile()
         let secondResult = orchestrator.reconcile()
 
-        XCTAssertEqual(mounter.calls, ["unmount(disk4s1,true)", "mountNativeReadOnly(disk4s1)"])
+        XCTAssertEqual(mounter.calls, [])
         XCTAssertEqual(firstResult.health, .degradedReadOnly)
         XCTAssertEqual(firstResult.volumes.first?.mode, .readOnly)
+        XCTAssertTrue(firstResult.volumes.first?.reason.contains("dirty NTFS journal") == true)
         XCTAssertEqual(secondResult.health, .degradedReadOnly)
         XCTAssertEqual(secondResult.volumes.first?.mode, .readOnly)
     }
@@ -628,7 +645,7 @@ final class NTFSOrchestratorTests: XCTestCase {
         XCTAssertEqual(result.volumes.first?.mountPoint, "/Volumes/Passport")
     }
 
-    func testNativeReadOnlyTakeoverStopsBeforeRegisteredFilesystemWhenRawWriteProbeIsDenied() {
+    func testNativeReadOnlyTakeoverUsesRegisteredFilesystemWhenRawWriteProbeIsDenied() {
         let initialVolume = DiskVolume.testVolume(
             filesystemType: "ntfs",
             filesystemName: "Windows NT Filesystem",
@@ -654,10 +671,42 @@ final class NTFSOrchestratorTests: XCTestCase {
 
         let result = orchestrator.reconcile()
 
-        XCTAssertEqual(mounter.calls, [])
-        XCTAssertEqual(result.health, .degradedReadOnly)
-        XCTAssertEqual(result.volumes.first?.mode, .readOnly)
-        XCTAssertEqual(result.volumes.first?.toDTO().presentationState, .rawAccessDenied)
+        XCTAssertEqual(mounter.calls, ["unmount(disk4s1,true)", "mountUsingRegisteredPersonality(disk4s1,false)"])
+        XCTAssertEqual(result.health, .healthy)
+        XCTAssertEqual(result.volumes.first?.mode, .readWrite)
+        XCTAssertEqual(result.volumes.first?.toDTO().presentationState, .readWriteVerified)
+    }
+
+    func testNativeReadOnlyTakeoverUsesRegisteredFilesystemWhenRawWriteProbeIsBusy() {
+        let initialVolume = DiskVolume.testVolume(
+            filesystemType: "ntfs",
+            filesystemName: "Windows NT Filesystem",
+            mountPoint: "/Volumes/Passport",
+            isMounted: true,
+            isWritable: false
+        )
+        let scanner = FakeDiskScanner(volume: initialVolume)
+        let probe = FakeProbe(result: ProbeResult(
+            safeForWrite: false,
+            reason: "Error opening '/dev/disk4s1': Resource busy"
+        ))
+        let mounter = FakeMounter(scanner: scanner)
+        mounter.rawDeviceReadable = false
+        let orchestrator = NTFSOrchestrator(
+            scanner: scanner,
+            probe: probe,
+            mounter: mounter,
+            mountPointWriteProbe: Self.successfulWriteProbe,
+            dependencyCheck: Self.readyDependencies,
+            rawAccessReadinessCheckInterval: 0
+        )
+
+        let result = orchestrator.reconcile()
+
+        XCTAssertEqual(mounter.calls, ["unmount(disk4s1,true)", "mountUsingRegisteredPersonality(disk4s1,false)"])
+        XCTAssertEqual(result.health, .healthy)
+        XCTAssertEqual(result.volumes.first?.mode, .readWrite)
+        XCTAssertEqual(result.volumes.first?.toDTO().presentationState, .readWriteVerified)
     }
 
     func testNativeReadOnlyTakeoverStopsAfterRawDiskDenialAndRestoresNativeReadOnly() {
@@ -691,13 +740,62 @@ final class NTFSOrchestratorTests: XCTestCase {
         let firstResult = orchestrator.reconcile()
         let secondResult = orchestrator.reconcile()
 
-        XCTAssertEqual(mounter.calls, [])
+        XCTAssertEqual(mounter.calls, [
+            "unmount(disk4s1,true)",
+            "mountUsingRegisteredPersonality(disk4s1,false)",
+            "mountReadWrite(disk4s1)",
+            "mountNativeReadOnly(disk4s1)"
+        ])
         XCTAssertEqual(firstResult.health, .degradedReadOnly)
         XCTAssertEqual(firstResult.volumes.first?.mode, .readOnly)
         XCTAssertEqual(firstResult.volumes.first?.mountPoint, "/Volumes/Passport")
-        XCTAssertTrue(firstResult.volumes.first?.reason.contains("raw disk access is not authorized") == true)
+        XCTAssertTrue(firstResult.volumes.first?.reason.contains("macOS raw disk access policy") == true)
+        XCTAssertEqual(firstResult.volumes.first?.toDTO().presentationState, .nativeReadOnly)
+        XCTAssertEqual(firstResult.volumes.first?.toDTO().primaryAction, .retryWritableTakeover)
         XCTAssertEqual(secondResult.health, .degradedReadOnly)
         XCTAssertEqual(secondResult.volumes.first?.mode, .readOnly)
+    }
+
+    func testNativeReadOnlyFallbackWithRegisteredFormatterRetriesWithoutRawReadability() {
+        let initialVolume = DiskVolume.testVolume(
+            filesystemType: "ntfs",
+            filesystemName: "Windows NT Filesystem",
+            mountPoint: "/Volumes/Passport",
+            isMounted: true,
+            isWritable: false
+        )
+        let scanner = FakeDiskScanner(volume: initialVolume)
+        let probe = FakeProbe(result: ProbeResult(safeForWrite: true, reason: "safe"))
+        let mounter = FakeMounter(scanner: scanner)
+        mounter.rawDeviceReadable = false
+        mounter.mountRegisteredPersonalityError = AppError(
+            message: "diskutil mount failed for disk4s1: Volume on disk4s1 failed to mount"
+        )
+        mounter.mountReadWriteError = AppError(
+            message: "Mount failed for disk4s1: macOS denied raw disk access to /dev/disk4s1."
+        )
+        let orchestrator = NTFSOrchestrator(
+            scanner: scanner,
+            probe: probe,
+            mounter: mounter,
+            mountPointWriteProbe: Self.successfulWriteProbe,
+            dependencyCheck: Self.readyDependencies,
+            nativeReadOnlyTakeoverRetryInterval: 0,
+            rawAccessReadinessCheckInterval: 60
+        )
+
+        _ = orchestrator.reconcile()
+        mounter.calls.removeAll()
+        mounter.mountRegisteredPersonalityError = nil
+
+        let retryResult = orchestrator.reconcile()
+
+        XCTAssertEqual(mounter.calls, [
+            "unmount(disk4s1,true)",
+            "mountUsingRegisteredPersonality(disk4s1,false)"
+        ])
+        XCTAssertEqual(retryResult.health, .healthy)
+        XCTAssertEqual(retryResult.volumes.first?.mode, .readWrite)
     }
 
     func testNativeReadOnlyTakeoverContinuesWhenDiskutilInfoTimesOutAfterUnmount() {
@@ -1538,6 +1636,93 @@ final class NTFSOrchestratorTests: XCTestCase {
         XCTAssertEqual(result.volumes.count, 0)
     }
 
+    func testScanFailureDropsCollapsedKnownManagedMountWhenDeviceNoLongerExists() {
+        let managedVolume = DiskVolume.testVolume(
+            deviceIdentifier: "disk12s2",
+            diskUUID: "FB66280B-1743-4B91-A5A1-4567CF9A4B37",
+            volumeName: "gg",
+            filesystemType: "ntfsaccess",
+            filesystemName: "NTFS Access",
+            mountPoint: "/Volumes/NTFSAccess-diskuuid-FB66280B-1743-4B91-A5A1-4567CF9A4B37",
+            isMounted: true,
+            isWritable: true
+        )
+        let scanner = FakeDiskScanner(volume: managedVolume)
+        let probe = FakeProbe(result: ProbeResult(safeForWrite: true, reason: "safe"))
+        let mounter = FakeMounter(scanner: scanner)
+        var activeMount = true
+        let orchestrator = NTFSOrchestrator(
+            scanner: scanner,
+            probe: probe,
+            mounter: mounter,
+            mountPointWriteProbe: Self.successfulWriteProbe,
+            dependencyCheck: Self.readyDependencies,
+            mountPathExists: { _ in activeMount },
+            managedMountPointIsActive: { _ in activeMount }
+        )
+
+        _ = orchestrator.reconcile()
+        mounter.calls.removeAll()
+        activeMount = false
+        scanner.volumes = []
+        scanner.listError = AppError(message: "The data could not be read because it is not in the correct format.")
+        scanner.infoErrorsByIdentifier["disk12s2"] = AppError(message: "Could not find disk: /dev/disk12s2")
+
+        let result = orchestrator.reconcile()
+
+        XCTAssertEqual(mounter.calls, [])
+        XCTAssertEqual(result.health, .healthy)
+        XCTAssertEqual(result.managedVolumeCount, 0)
+        XCTAssertEqual(result.volumes.count, 0)
+    }
+
+    func testScanFailureDropsCollapsedKnownManagedMountAfterDeviceIsReformattedAwayFromNTFS() {
+        let managedVolume = DiskVolume.testVolume(
+            deviceIdentifier: "disk13s2",
+            diskUUID: "4C0C0133-D379-45D1-ADDA-7BA72266BB22",
+            volumeName: "NVME A",
+            filesystemType: "ntfsaccess",
+            filesystemName: "NTFS Access",
+            mountPoint: "/Volumes/NTFSAccess-diskuuid-4C0C0133-D379-45D1-ADDA-7BA72266BB22",
+            isMounted: true,
+            isWritable: true
+        )
+        let scanner = FakeDiskScanner(volume: managedVolume)
+        let probe = FakeProbe(result: ProbeResult(safeForWrite: true, reason: "safe"))
+        let mounter = FakeMounter(scanner: scanner)
+        var activeMount = true
+        let orchestrator = NTFSOrchestrator(
+            scanner: scanner,
+            probe: probe,
+            mounter: mounter,
+            mountPointWriteProbe: Self.successfulWriteProbe,
+            dependencyCheck: Self.readyDependencies,
+            mountPathExists: { _ in activeMount },
+            managedMountPointIsActive: { _ in activeMount }
+        )
+
+        _ = orchestrator.reconcile()
+        mounter.calls.removeAll()
+        activeMount = false
+        scanner.volume = managedVolume.copy(
+            volumeName: "Untitled 2",
+            mediaName: "Untitled 2",
+            filesystemType: "apfs",
+            filesystemName: "APFS",
+            mountPoint: nil,
+            isMounted: false,
+            isWritable: true
+        )
+        scanner.listError = AppError(message: "The data could not be read because it is not in the correct format.")
+
+        let result = orchestrator.reconcile()
+
+        XCTAssertEqual(mounter.calls, [])
+        XCTAssertEqual(result.health, .healthy)
+        XCTAssertEqual(result.managedVolumeCount, 0)
+        XCTAssertEqual(result.volumes.count, 0)
+    }
+
     func testScanFailureRecoversOnlyCollapsedManagedSiblingInMultiDriveSetup() throws {
         let temporaryDirectory = try makeTemporaryDirectory()
         defer {
@@ -2000,6 +2185,8 @@ final class NTFSOrchestratorTests: XCTestCase {
         XCTAssertEqual(result.volumes.first?.mode, .readOnly)
         XCTAssertEqual(result.volumes.first?.mountPoint, "/Volumes/Passport")
         XCTAssertTrue(result.volumes.first?.reason.contains("raw disk access") == true)
+        XCTAssertEqual(result.volumes.first?.toDTO().presentationState, .nativeReadOnly)
+        XCTAssertEqual(result.volumes.first?.toDTO().primaryAction, .retryWritableTakeover)
     }
 
     func testUnmountedVolumeFallsBackReadOnlyWhenWriteSafetyProbeIsUnavailable() {

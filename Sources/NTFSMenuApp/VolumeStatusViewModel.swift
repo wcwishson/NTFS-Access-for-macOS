@@ -71,7 +71,7 @@ struct VolumeStatusRow: Identifiable, Sendable {
         case .failedToMount:
             return "Failed to mount"
         case .rawAccessDenied:
-            return "Full Disk Access needed"
+            return "Full Disk Access refresh needed"
         case .macFUSEUnavailable:
             return "macFUSE unavailable"
         case .unsafeNTFS:
@@ -314,7 +314,7 @@ final class VolumeStatusViewModel {
     private static func guidanceMessage(for action: VolumeRecoveryActionRaw) -> String {
         switch action {
         case .openFullDiskAccess:
-            return "Full Disk Access is macOS' privacy gate for raw disks. Enable NTFS Access there, then retry. Development rebuilds are ad-hoc signed, so macOS may treat a newly installed build like a new app and need this approval again."
+            return "Full Disk Access is macOS' privacy gate for raw disks. If NTFS Access is already enabled, remove it from the list, add /Applications/NTFS Access.app again, then retry. Development rebuilds can make macOS treat the app like a new privacy identity."
         case .showMacFUSEGuidance:
             return "macFUSE is the compatibility layer NTFS Access uses to present a writable NTFS volume to Finder. Approve or reinstall macFUSE, then retry."
         case .showWindowsCleanupGuidance:

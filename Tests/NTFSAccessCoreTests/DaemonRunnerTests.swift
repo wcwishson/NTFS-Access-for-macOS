@@ -435,7 +435,7 @@ final class DaemonRunnerTests: XCTestCase {
             rateLimiter: XPCMutationRateLimiter(minimumInterval: 0)
         )
         service.scanNowBlocking { _ in }
-        XCTAssertEqual(stateStore.currentVolumeStates().first?.presentationState, .rawAccessDenied)
+        XCTAssertEqual(stateStore.currentVolumeStates().first?.presentationState, .nativeReadOnly)
 
         probe.result = ProbeResult(safeForWrite: true, reason: "write probe passed")
         mounter.rawDeviceReadable = true

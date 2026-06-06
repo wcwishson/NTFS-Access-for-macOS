@@ -26,6 +26,20 @@ MANAGED_TOOLCHAIN_ROOT="${NTFSACCESS_SOURCE_TOOLCHAIN_ROOT:-/Library/NTFSAccess/
 MANAGED_TOOLCHAIN_BIN_DIR="$MANAGED_TOOLCHAIN_ROOT/bin"
 MANAGED_TOOLCHAIN_SBIN_DIR="$MANAGED_TOOLCHAIN_ROOT/sbin"
 MANAGED_TOOLCHAIN_LIB_DIR="$MANAGED_TOOLCHAIN_ROOT/lib"
+LOCAL_CODESIGN_IDENTITY="${NTFSACCESS_LOCAL_CODESIGN_IDENTITY:-NTFS Access Local Signing}"
+CODESIGN_IDENTITY="${NTFSACCESS_CODESIGN_IDENTITY:-}"
+
+if [[ -z "$CODESIGN_IDENTITY" ]]; then
+  if /usr/bin/security find-certificate -c "$LOCAL_CODESIGN_IDENTITY" -p >/dev/null 2>&1; then
+    CODESIGN_IDENTITY="$LOCAL_CODESIGN_IDENTITY"
+  else
+    CODESIGN_IDENTITY="-"
+  fi
+fi
+
+codesign_file() {
+  /usr/bin/codesign --force --sign "$CODESIGN_IDENTITY" "$@"
+}
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$HELPERS_DIR" "$TOOLCHAIN_BIN_DIR" "$TOOLCHAIN_SBIN_DIR" "$TOOLCHAIN_LIB_DIR"
@@ -91,9 +105,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key>
   <string>com.ntfsaccess.menu</string>
   <key>CFBundleVersion</key>
-  <string>1.0.0</string>
+  <string>1.0.1</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.0</string>
+  <string>1.0.1</string>
   <key>CFBundleExecutable</key>
   <string>NTFSMenuApp</string>
   <key>CFBundleIconFile</key>
@@ -109,16 +123,18 @@ PLIST
 find "$APP_DIR" \( -name '._*' -o -name '.DS_Store' \) -delete
 strip_metadata "$APP_DIR"
 
-/usr/bin/codesign --force --sign - "$TOOLCHAIN_LIB_DIR/libntfs-3g.89.dylib"
+echo "Codesigning identity: $CODESIGN_IDENTITY"
+
+codesign_file "$TOOLCHAIN_LIB_DIR/libntfs-3g.89.dylib"
 for binary in ntfs-3g ntfs-3g.probe ntfsfix; do
-  /usr/bin/codesign --force --sign - "$TOOLCHAIN_BIN_DIR/$binary"
+  codesign_file "$TOOLCHAIN_BIN_DIR/$binary"
 done
 for binary in mkntfs ntfslabel; do
-  /usr/bin/codesign --force --sign - "$TOOLCHAIN_SBIN_DIR/$binary"
+  codesign_file "$TOOLCHAIN_SBIN_DIR/$binary"
 done
-/usr/bin/codesign --force --sign - "$MACOS_DIR/ntfsaccessctl"
-/usr/bin/codesign --force --sign - "$MACOS_DIR/newfs_ntfsaccess"
-/usr/bin/codesign --force --sign - "$APP_DIR"
+codesign_file "$MACOS_DIR/ntfsaccessctl"
+codesign_file "$MACOS_DIR/newfs_ntfsaccess"
+codesign_file "$APP_DIR"
 /usr/bin/codesign --verify --deep --strict "$APP_DIR"
 
 echo "Packaged app: $APP_DIR"

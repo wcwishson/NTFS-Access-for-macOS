@@ -107,6 +107,19 @@ final class FilesystemBundleScriptTests: XCTestCase {
         )
     }
 
+    func testFilesystemUtilCanDelegateProbeToAppleNTFSUtil() throws {
+        let util = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Packaging/Filesystems/ntfsaccess.fs/Contents/Resources/ntfsaccess.util")
+        let source = try String(contentsOf: util, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("/System/Library/Filesystems/ntfs.fs/Contents/Resources/$binary"))
+        XCTAssertTrue(source.contains("apple_probe=\"$(resolve_tool ntfs.util || true)\""))
+        XCTAssertTrue(source.contains("exec \"$apple_probe\" -p \"$probe_device\" \"$@\""))
+    }
+
     func testPreinstallChecksTrustedMacFUSEInsteadOfEnvironmentOrPath() throws {
         let preinstall = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

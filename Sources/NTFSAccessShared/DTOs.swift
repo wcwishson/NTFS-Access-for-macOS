@@ -162,9 +162,6 @@ public final class VolumeStateDTO: NSObject, NSSecureCoding {
         if containsAny(lowerReason, ["ignored", "unsupported non-ntfs", "non-ntfs"]) {
             return (.ignored, .gray, .none)
         }
-        if containsAny(lowerReason, ["operation not permitted", "raw access", "raw disk", "full disk access", "privacy"]) {
-            return (.rawAccessDenied, .red, .openFullDiskAccess)
-        }
         if containsAny(lowerReason, ["dirty", "hibernated", "unsafe", "windows cleanup", "windows fast startup", "encrypted", "bitlocker"]) {
             return (.unsafeNTFS, .red, .showWindowsCleanupGuidance)
         }
@@ -184,8 +181,14 @@ public final class VolumeStateDTO: NSObject, NSSecureCoding {
             if lowerReason.contains("ntfs access") || mountPoint.contains("NTFSAccess") || lowerReason.contains("fallback") {
                 return (.readOnlyFallback, .yellow, .retryWritableTakeover)
             }
+            if containsAny(lowerReason, ["operation not permitted", "raw access", "raw disk", "full disk access", "privacy"]) {
+                return (.rawAccessDenied, .red, .openFullDiskAccess)
+            }
             return (.nativeReadOnly, .yellow, .retryWritableTakeover)
         case .unmounted:
+            if containsAny(lowerReason, ["operation not permitted", "raw access", "raw disk", "full disk access", "privacy"]) {
+                return (.rawAccessDenied, .red, .openFullDiskAccess)
+            }
             return (.failedToMount, .red, .retryMount)
         }
     }

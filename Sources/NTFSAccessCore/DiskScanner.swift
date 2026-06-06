@@ -3,6 +3,17 @@ import Foundation
 public protocol DiskScanning {
     func listNTFSVolumes(externalOnly: Bool) throws -> [DiskVolume]
     func info(for deviceIdentifier: String) throws -> DiskVolume
+    func deviceNoLongerPresent(_ error: Error) -> Bool
+}
+
+public extension DiskScanning {
+    func deviceNoLongerPresent(_ error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        return message.contains("could not find disk")
+            || message.contains("no such disk")
+            || message.contains("no such device")
+            || message.contains("does not exist")
+    }
 }
 
 public final class DiskScanner: DiskScanning {
@@ -175,6 +186,9 @@ public final class DiskScanner: DiskScanning {
             description: "diskutil info for \(normalized)",
             timeout: 12
         )
+        if let errorMessage = stringValue(plist, key: "ErrorMessage") {
+            throw AppError(message: errorMessage)
+        }
         guard !plist.isEmpty else {
             throw AppError(message: "Unable to parse diskutil info for \(normalized)")
         }

@@ -224,7 +224,7 @@ public final class NTFSMounter: VolumeMounting {
     private func rawDiskPermissionDeniedError(for volume: DiskVolume) -> AppError {
         AppError(
             message: """
-            Mount failed for \(volume.deviceIdentifier): macOS denied raw disk access to \(volume.deviceNode). This is a system privacy/policy denial below NTFS Access, not evidence that the NTFS volume itself is dirty. Admin/root is not enough here. Grant Full Disk Access to the currently installed /Applications/NTFS Access.app, then restart NTFS Access or run ntfsaccessctl retry-mounts --wait. Because this build is ad-hoc signed, rebuilding or reinstalling can make macOS treat it as a new app and require removing and re-adding NTFS Access.app in Full Disk Access.
+            Mount failed for \(volume.deviceIdentifier): macOS denied raw disk access to \(volume.deviceNode). This is a system privacy/policy denial below NTFS Access, not evidence that the NTFS volume itself is dirty. Admin/root is not enough here. If /Applications/NTFS Access.app is already enabled in Full Disk Access, remove it, add the currently installed app again, then restart NTFS Access or run ntfsaccessctl retry-mounts --wait. Rebuilt or ad-hoc signed apps can look like a new privacy identity to macOS even when the old checkbox is still visible.
             """
         )
     }
