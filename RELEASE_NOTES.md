@@ -1,19 +1,13 @@
-# NTFS Access 1.0.0
+# NTFS Access 1.0.2
 
-This is the first public release of NTFS Access for macOS.
+This release adds dashboard controls for how NTFS Access starts when you log in.
 
-## Highlights
+## What's New
 
-- Mounts external NTFS partitions through macFUSE and a bundled `ntfs-3g` toolchain.
-- Adds a menu bar dashboard for connected NTFS drives.
-- Groups NTFS partitions by physical drive for clearer multi-partition drive handling.
-- Shows clear per-partition states: read/write, read-only fallback, failed, and ejected.
-- Adds per-partition recovery and eject actions through the dashboard and `ntfsaccessctl`.
-- Adds Disk Utility erase support through `Windows NT File System (NTFS Access)`.
-- Preserves native macOS read-only NTFS visibility when writable takeover is blocked by privacy approval or unsafe drive state.
-- Improves Finder behavior for folder copies, package-like folders, metadata sidecars, trash/delete workflows, and PDF/image file sets.
-- Improves remount and recovery handling for busy volumes, unplug/replug cycles, and multiple NTFS partitions on the same physical drive.
-- Stabilizes the dashboard refresh path so row order and row size do not jump during background scans.
+- Adds `Start with this Mac` to the NTFS Drives dashboard.
+- Adds `Start minimized` to keep the dashboard hidden at login while leaving the menu bar icon available.
+- When `Start minimized` is off, NTFS Access can show the dashboard automatically after login.
+- Keeps manual opening simple: clicking the menu bar icon still brings the dashboard forward.
 
 ## Install Notes
 
@@ -36,5 +30,5 @@ The app bundle inside the package is ad-hoc signed. The installer package is uns
 `NTFSAccess-installer.pkg`
 
 ```text
-0ad4fc26e4bc3c65b80e57f008ca55265394cd20487425a069a03d3504d2fc05
+5734a08a1c35667248a19d5afbe9c5bbee32b12f33a2523851b2eb2879d02a0b
 ```

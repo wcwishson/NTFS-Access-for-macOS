@@ -33,6 +33,8 @@ NTFS Access relies on macFUSE because macOS does not provide a public built-in w
 
 - Plug in an NTFS drive and wait a few seconds.
 - Click the NTFS Access menu bar icon to open the `NTFS Drives` dashboard.
+- Use `Start with this Mac` to choose whether NTFS Access opens automatically when you log in.
+- Use `Start minimized` to choose whether the dashboard stays hidden at login until you click the menu bar icon.
 - Use Finder normally when a partition is shown as read/write.
 - Click `Fix` on a non-green partition after granting Full Disk Access or reconnecting a drive.
 - Click `Eject` before unplugging a partition.
@@ -49,6 +51,7 @@ Disk Utility can erase a test drive or partition as `Windows NT File System (NTF
 ## Included Tools
 
 - Menu bar dashboard with physical-drive grouping and per-partition status
+- Dashboard startup controls for opening at login and starting minimized
 - Per-partition `Fix`, rescan, reveal, and eject controls
 - Automatic NTFS scan and remount service
 - Read-only fallback preservation when writable takeover is unsafe or blocked

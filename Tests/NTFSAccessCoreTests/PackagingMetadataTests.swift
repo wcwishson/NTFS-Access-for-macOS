@@ -37,6 +37,7 @@ final class PackagingMetadataTests: XCTestCase {
     func testMenuAppDashboardUsesExistingXPCAndKeepsAccessoryQuitMenu() throws {
         let appController = try String(contentsOf: repositoryRoot().appendingPathComponent("Sources/NTFSMenuApp/AppController.swift"), encoding: .utf8)
         let dashboardController = try String(contentsOf: repositoryRoot().appendingPathComponent("Sources/NTFSMenuApp/VolumeDashboardWindowController.swift"), encoding: .utf8)
+        let launchPreferences = try String(contentsOf: repositoryRoot().appendingPathComponent("Sources/NTFSMenuApp/AppLaunchPreferences.swift"), encoding: .utf8)
         let viewModel = try String(contentsOf: repositoryRoot().appendingPathComponent("Sources/NTFSMenuApp/VolumeStatusViewModel.swift"), encoding: .utf8)
         let appPackageScript = try String(contentsOf: repositoryRoot().appendingPathComponent("scripts/package_app.sh"), encoding: .utf8)
 
@@ -48,6 +49,7 @@ final class PackagingMetadataTests: XCTestCase {
         XCTAssertTrue(appController.contains("shouldShowDashboardAfterLaunch"))
         XCTAssertTrue(appController.contains("ProcessInfo.processInfo.environment[\"XPC_SERVICE_NAME\"]"))
         XCTAssertTrue(appController.contains("\"com.ntfsaccess.menu\""))
+        XCTAssertTrue(appController.contains("AppLaunchPreferences.shared.startMinimized"))
         XCTAssertTrue(appController.contains("applicationDidBecomeActive"))
         XCTAssertTrue(appController.contains("shouldShowDashboardOnNextActivation"))
         XCTAssertTrue(appController.contains("applicationShouldHandleReopen"))
@@ -63,8 +65,18 @@ final class PackagingMetadataTests: XCTestCase {
         XCTAssertTrue(dashboardController.contains("scrollView.contentSize.width"))
         XCTAssertTrue(dashboardController.contains("Fix"))
         XCTAssertTrue(dashboardController.contains("Rescan"))
+        XCTAssertTrue(dashboardController.contains("Start with this Mac"))
+        XCTAssertTrue(dashboardController.contains("Start minimized"))
+        XCTAssertTrue(dashboardController.contains("handleStartWithMacToggle"))
+        XCTAssertTrue(dashboardController.contains("handleStartMinimizedToggle"))
         XCTAssertTrue(dashboardController.contains("Open in Finder"))
         XCTAssertTrue(dashboardController.contains("Details"))
+        XCTAssertTrue(launchPreferences.contains("StartMinimizedAtLogin"))
+        XCTAssertTrue(launchPreferences.contains("print-disabled"))
+        XCTAssertTrue(launchPreferences.contains("enabled|disabled"))
+        XCTAssertTrue(launchPreferences.contains("launchctl"))
+        XCTAssertTrue(launchPreferences.contains("/Library/LaunchAgents/com.ntfsaccess.menu.plist"))
+        XCTAssertTrue(launchPreferences.contains("com.ntfsaccess.menu"))
         XCTAssertTrue(viewModel.contains("getVolumeStates"))
         XCTAssertTrue(viewModel.contains("Task { @MainActor [weak self] in\n                switch result"))
         XCTAssertTrue(viewModel.contains("scanNow"))
@@ -176,7 +188,7 @@ final class PackagingMetadataTests: XCTestCase {
     }
 
     func testPackageVersionMetadataIsConsistentForCurrentBuild() throws {
-        let expectedVersion = "1.0.1"
+        let expectedVersion = "1.0.2"
         let appPackageScript = try String(contentsOf: repositoryRoot().appendingPathComponent("scripts/package_app.sh"), encoding: .utf8)
         let packageScript = try String(contentsOf: repositoryRoot().appendingPathComponent("scripts/package_pkg.sh"), encoding: .utf8)
         let distribution = try String(contentsOf: repositoryRoot().appendingPathComponent("Packaging/distribution.xml"), encoding: .utf8)

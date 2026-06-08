@@ -5,20 +5,35 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
     var onClose: (() -> Void)?
 
     private let viewModel: VolumeStatusViewModel
+    private let launchPreferences: AppLaunchPreferences
     private let rowsStack = NSStackView()
     private let rowsDocumentView = FlippedDocumentView()
     private let scrollView = NSScrollView()
     private let serviceLabel = NSTextField(labelWithString: "Checking NTFS Access...")
     private let updatedLabel = NSTextField(labelWithString: "")
     private let emptyLabel = NSTextField(labelWithString: "No external NTFS drives connected.")
+    private lazy var startWithMacCheckbox = NSButton(
+        checkboxWithTitle: "Start with this Mac",
+        target: self,
+        action: #selector(handleStartWithMacToggle)
+    )
+    private lazy var startMinimizedCheckbox = NSButton(
+        checkboxWithTitle: "Start minimized",
+        target: self,
+        action: #selector(handleStartMinimizedToggle)
+    )
     private var pollTimer: Timer?
     private var rowsDocumentWidthConstraint: NSLayoutConstraint?
     private var rowsDocumentHeightConstraint: NSLayoutConstraint?
     private var renderedRowsSignature: [String]?
     private var renderedRowsMinimumHeight: CGFloat = 0
 
-    init(viewModel: VolumeStatusViewModel = VolumeStatusViewModel()) {
+    init(
+        viewModel: VolumeStatusViewModel = VolumeStatusViewModel(),
+        launchPreferences: AppLaunchPreferences = .shared
+    ) {
         self.viewModel = viewModel
+        self.launchPreferences = launchPreferences
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: DashboardLayout.windowWidth, height: DashboardLayout.windowHeight),
@@ -48,6 +63,7 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
         window?.center()
         window?.makeKeyAndOrderFront(sender)
         NSApp.activate(ignoringOtherApps: true)
+        refreshLaunchControls()
         startPolling()
         viewModel.refresh()
     }
@@ -100,6 +116,14 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
         statusLine.alignment = .centerY
         statusLine.spacing = 8
 
+        startWithMacCheckbox.toolTip = "Open NTFS Access automatically when this Mac starts."
+        startMinimizedCheckbox.toolTip = "Keep the NTFS Drives window hidden when NTFS Access opens at login."
+        let launchSettingsLine = NSStackView(views: [startWithMacCheckbox, startMinimizedCheckbox, NSView()])
+        launchSettingsLine.orientation = .horizontal
+        launchSettingsLine.alignment = .centerY
+        launchSettingsLine.spacing = 16
+        refreshLaunchControls()
+
         rowsStack.orientation = .vertical
         rowsStack.alignment = .width
         rowsStack.spacing = 8
@@ -121,6 +145,7 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
 
         root.addArrangedSubview(header)
         root.addArrangedSubview(statusLine)
+        root.addArrangedSubview(launchSettingsLine)
         root.addArrangedSubview(scrollView)
 
         let contentView = NSView()
@@ -134,6 +159,7 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
             contentView.widthAnchor.constraint(lessThanOrEqualToConstant: DashboardLayout.windowMaxWidth),
             header.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -32),
             statusLine.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -32),
+            launchSettingsLine.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -32),
             scrollView.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -32),
             scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 220),
             widthConstraint,
@@ -258,6 +284,39 @@ final class VolumeDashboardWindowController: NSWindowController, NSWindowDelegat
 
     @objc private func handleRescan() {
         viewModel.rescan()
+    }
+
+    @objc private func handleStartWithMacToggle() {
+        let shouldEnable = startWithMacCheckbox.state == .on
+        startWithMacCheckbox.isEnabled = false
+        defer {
+            startWithMacCheckbox.isEnabled = true
+            refreshLaunchControls()
+        }
+
+        do {
+            try launchPreferences.setStartWithMacEnabled(shouldEnable)
+        } catch {
+            showLaunchPreferenceError(error)
+        }
+    }
+
+    @objc private func handleStartMinimizedToggle() {
+        launchPreferences.startMinimized = startMinimizedCheckbox.state == .on
+        refreshLaunchControls()
+    }
+
+    private func refreshLaunchControls() {
+        startWithMacCheckbox.state = launchPreferences.isStartWithMacEnabled() ? .on : .off
+        startMinimizedCheckbox.state = launchPreferences.startMinimized ? .on : .off
+    }
+
+    private func showLaunchPreferenceError(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = "Could not update startup setting"
+        alert.informativeText = error.localizedDescription
+        alert.addButton(withTitle: "OK")
+        alert.beginSheetModal(for: window ?? NSWindow()) { _ in }
     }
 
     @objc fileprivate func handleFix(_ sender: VolumeRowButton) {

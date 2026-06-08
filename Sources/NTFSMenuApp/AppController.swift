@@ -149,7 +149,11 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func shouldShowDashboardAfterLaunch() -> Bool {
         let serviceName = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] ?? ""
-        return !serviceName.hasSuffix("com.ntfsaccess.menu")
+        guard serviceName.hasSuffix("com.ntfsaccess.menu") else {
+            return true
+        }
+
+        return !AppLaunchPreferences.shared.startMinimized
     }
 
     @objc private func quit() {

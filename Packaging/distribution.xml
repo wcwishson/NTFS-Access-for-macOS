@@ -9,5 +9,5 @@
   <choice id="com.ntfsaccess.pkg.choice" visible="false" title="NTFS Access">
     <pkg-ref id="com.ntfsaccess.pkg.component"/>
   </choice>
-  <pkg-ref id="com.ntfsaccess.pkg.component" version="1.0.1" onConclusion="none">ntfsaccess-component.pkg</pkg-ref>
+  <pkg-ref id="com.ntfsaccess.pkg.component" version="1.0.2" onConclusion="none">ntfsaccess-component.pkg</pkg-ref>
 </installer-gui-script>

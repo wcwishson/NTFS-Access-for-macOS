@@ -118,7 +118,7 @@ pkgbuild \
   --component-plist "$COMPONENT_PLIST" \
   --scripts "$ROOT_DIR/Packaging/Scripts" \
   --identifier "com.ntfsaccess.pkg.component" \
-  --version "1.0.1" \
+  --version "1.0.2" \
   --ownership recommended \
   --filter '\.DS_Store$' \
   --filter '(^|/)\._' \

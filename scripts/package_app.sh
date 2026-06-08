@@ -105,9 +105,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key>
   <string>com.ntfsaccess.menu</string>
   <key>CFBundleVersion</key>
-  <string>1.0.1</string>
+  <string>1.0.2</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.1</string>
+  <string>1.0.2</string>
   <key>CFBundleExecutable</key>
   <string>NTFSMenuApp</string>
   <key>CFBundleIconFile</key>
